@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dave's Mowers - Margin Calculator</title>
+<style>
+  :root {
+    --green-bg: #EAF3DE; --green-text: #27500A; --green-dot: #639922;
+    --amber-bg: #FAEEDA; --amber-text: #633806; --amber-dot: #BA7517;
+    --red-bg: #FCEBEB; --red-text: #791F1F; --red-dot: #E24B4A;
+    --border: #D3D1C7; --text-secondary: #5F5E5A; --bg-secondary: #F1EFE8;
+  }
+  * { box-sizing: border-box; font-family: -apple-system, Segoe UI, Arial, sans-serif; }
+  body { max-width: 480px; margin: 0 auto; padding: 24px 16px; background: #fff; color: #2C2C2A; }
+  h1 { font-size: 18px; font-weight: 600; margin: 0 0 4px; }
+  .sub { font-size: 13px; color: var(--text-secondary); margin: 0 0 20px; }
+  .search-wrap { position: relative; margin-bottom: 16px; }
+  #search {
+    width: 100%; padding: 12px 14px; font-size: 16px; border: 1px solid var(--border);
+    border-radius: 8px; outline: none;
+  }
+  #search:focus { border-color: #888780; }
+  #suggestions {
+    position: absolute; left: 0; right: 0; top: 48px; background: #fff;
+    border: 1px solid var(--border); border-radius: 8px; max-height: 280px;
+    overflow-y: auto; z-index: 10; display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  }
+  .suggestion-item { padding: 10px 14px; cursor: pointer; border-bottom: 1px solid var(--border); }
+  .suggestion-item:last-child { border-bottom: none; }
+  .suggestion-item:hover { background: var(--bg-secondary); }
+  .suggestion-item .desc { font-size: 14px; font-weight: 500; }
+  .suggestion-item .code { font-size: 12px; color: var(--text-secondary); }
+
+  #result-card { display: none; }
+  .result-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; }
+  .result-code { font-size: 13px; color: var(--text-secondary); margin: 0 0 2px; }
+  .result-desc { font-size: 16px; font-weight: 600; margin: 0; }
+  .dot { width: 16px; height: 16px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
+  .dot-sm { width: 12px; height: 12px; border-radius: 50%; display: inline-block; vertical-align: middle; }
+
+  .price-card { background: var(--bg-secondary); border-radius: 12px; padding: 20px; margin-bottom: 16px; text-align: center; }
+  .price-card-label { font-size: 12px; color: var(--text-secondary); margin: 0 0 10px; }
+  .price-row { display: flex; align-items: center; justify-content: center; gap: 16px; }
+  .price-btn {
+    width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--border);
+    background: #fff; font-size: 22px; cursor: pointer; display: flex;
+    align-items: center; justify-content: center; user-select: none;
+  }
+  .price-btn:active { transform: scale(0.96); }
+  .price-display { display: flex; align-items: baseline; gap: 4px; }
+  .price-display span.dollar { font-size: 18px; color: var(--text-secondary); }
+  #price-input {
+    width: 140px; text-align: center; font-size: 34px; font-weight: 600;
+    border: none; background: transparent; padding: 4px 0; outline: none;
+  }
+  .margin-row { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 12px; }
+  #margin-pct { font-size: 15px; font-weight: 600; }
+  #tier-label { font-size: 13px; color: var(--text-secondary); }
+
+  #tier-note { border-radius: 8px; padding: 12px 14px; font-size: 13px; margin-bottom: 16px; }
+
+  .ref-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 12px; margin-bottom: 12px; }
+  .ref-box { display: flex; justify-content: space-between; padding: 10px 14px; background: var(--bg-secondary); border-radius: 8px; }
+  .ref-box span:last-child { font-weight: 600; }
+
+  #reset-btn {
+    width: 100%; padding: 10px; font-size: 13px; border: 1px solid var(--border);
+    border-radius: 8px; background: #fff; cursor: pointer; margin-bottom: 8px;
+  }
+  #reset-btn:hover { background: var(--bg-secondary); }
+
+  #no-data, #loading, #error { font-size: 13px; color: var(--text-secondary); padding: 16px 0; text-align: center; }
+  #error { color: var(--red-text); }
+
+  .legend { border-top: 1px solid var(--border); padding-top: 16px; margin-top: 24px; }
+  .legend-title { font-size: 12px; color: var(--text-secondary); margin: 0 0 8px; font-weight: 600; }
+  .legend-item { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-secondary); margin-bottom: 6px; }
+
+  .updated { font-size: 11px; color: var(--text-secondary); text-align: center; margin-top: 16px; }
+</style>
+</head>
+<body>
+
+<h1>Margin calculator</h1>
+<p class="sub">Search a model, check the margin, adjust the price during negotiation.</p>
+
+<div class="search-wrap">
+  <input type="text" id="search" placeholder="Enter model number or name (e.g. XT2 46 K)" autocomplete="off" />
+  <div id="suggestions"></div>
+</div>
+
+<div id="loading">Loading price feed...</div>
+<div id="error" style="display:none;"></div>
+
+<div id="result-card">
+  <div class="result-header">
+    <div>
+      <p class="result-code" id="result-code"></p>
+      <p class="result-desc" id="result-desc"></p>
+    </div>
+    <div class="dot" id="dot"></div>
+  </div>
+
+  <div class="price-card">
+    <p class="price-card-label">Sale price</p>
+    <div class="price-row">
+      <div class="price-btn" id="btn-minus" role="button" aria-label="Decrease by $5">&minus;</div>
+      <div class="price-display">
+        <span class="dollar">$</span>
+        <input type="number" id="price-input" step="5" />
+      </div>
+      <div class="price-btn" id="btn-plus" role="button" aria-label="Increase by $5">+</div>
+    </div>
+    <div class="margin-row">
+      <span class="dot-sm" id="dot-inline"></span>
+      <span id="margin-pct"></span>
+      <span id="tier-label"></span>
+    </div>
+  </div>
+
+  <div id="tier-note"></div>
+
+  <div class="ref-grid">
+    <div class="ref-box"><span>Advertised price</span><span id="advertised-ref"></span></div>
+    <div class="ref-box"><span>Floor (20%)</span><span id="floor-ref"></span></div>
+  </div>
+
+  <button id="reset-btn">Reset to advertised price</button>
+</div>
+
+<div id="no-data" style="display:none;">No advertised price on file for this model yet.</div>
+
+<div class="legend">
+  <p class="legend-title">Margin guide</p>
+  <div class="legend-item"><span class="dot-sm" style="background:var(--green-dot)"></span>22% and above — proceed</div>
+  <div class="legend-item"><span class="dot-sm" style="background:var(--amber-dot)"></span>20% to 22% — hold the line, no further discount</div>
+  <div class="legend-item"><span class="dot-sm" style="background:var(--red-dot)"></span>Below 20% — escalate to manager</div>
+</div>
+
+<p class="updated" id="updated-text"></p>
+
+<script>
+  // ---- CONFIGURATION ----
+  // Replace this URL if the published feed is ever re-published with a new link.
+  var FEED_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSfRg0sY2K5FTTZ5_UI0xFbWCZ90mif69CoAjIsLytCEuztM4nrqYTK2CLzTl6flyMtQhtZEffI8n0l/pub?gid=142579291&single=true&output=csv";
+  // -----------------------
+
+  var DATA = [];
+  var current = null;
+
+  function parseCSV(text) {
+    var rows = [], row = [], field = '', inQuotes = false;
+    for (var i = 0; i < text.length; i++) {
+      var c = text[i];
+      if (inQuotes) {
+        if (c === '"') {
+          if (text[i+1] === '"') { field += '"'; i++; } else { inQuotes = false; }
+        } else field += c;
+      } else {
+        if (c === '"') inQuotes = true;
+        else if (c === ',') { row.push(field); field = ''; }
+        else if (c === '\n' || c === '\r') {
+          if (c === '\r' && text[i+1] === '\n') i++;
+          row.push(field); field = '';
+          if (row.length > 1 || row[0] !== '') rows.push(row);
+          row = [];
+        } else field += c;
+      }
+    }
+    if (field !== '' || row.length > 0) { row.push(field); rows.push(row); }
+    return rows;
+  }
+
+  function escapeHtml(s) {
+    var div = document.createElement('div');
+    div.textContent = s;
+    return div.innerHTML;
+  }
+
+  function loadData() {
+    fetch(FEED_URL, { cache: 'no-store' })
+      .then(function(r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.text();
+      })
+      .then(function(text) {
+        var rows = parseCSV(text);
+        rows.shift(); // header
+        DATA = rows.map(function(r) {
+          return {
+            code: r[0] || '',
+            desc: r[1] || '',
+            price: parseFloat(r[2]) || null,
+            floor: parseFloat(r[3]) || null,
+            target: parseFloat(r[4]) || null
+          };
+        }).filter(function(d){ return d.code; });
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('updated-text').textContent = 'Price feed loaded - ' + DATA.length + ' models - ' + new Date().toLocaleString();
+      })
+      .catch(function(err) {
+        document.getElementById('loading').style.display = 'none';
+        var errBox = document.getElementById('error');
+        errBox.style.display = 'block';
+        errBox.textContent = 'Could not load price feed. Check your internet connection and try refreshing the page. (' + err.message + ')';
+      });
+  }
+  loadData();
+
+  var searchEl = document.getElementById('search');
+  var suggestionsEl = document.getElementById('suggestions');
+
+  searchEl.addEventListener('input', function() {
+    var q = searchEl.value.trim().toLowerCase();
+    if (!q) { suggestionsEl.style.display = 'none'; return; }
+    var matches = DATA.filter(function(d) {
+      return d.code.toLowerCase().indexOf(q) !== -1 || d.desc.toLowerCase().indexOf(q) !== -1;
+    }).slice(0, 8);
+    if (matches.length === 0) { suggestionsEl.style.display = 'none'; return; }
+    suggestionsEl.innerHTML = matches.map(function(d) {
+      return '<div class="suggestion-item" data-code="' + escapeHtml(d.code) + '">' +
+        '<div class="desc">' + escapeHtml(d.desc) + '</div>' +
+        '<div class="code">' + escapeHtml(d.code) + '</div></div>';
+    }).join('');
+    suggestionsEl.style.display = 'block';
+  });
+
+  suggestionsEl.addEventListener('click', function(e) {
+    var item = e.target.closest('.suggestion-item');
+    if (!item) return;
+    var code = item.getAttribute('data-code');
+    var match = DATA.filter(function(d){ return d.code === code; })[0];
+    if (match) selectItem(match);
+  });
+
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('.search-wrap')) suggestionsEl.style.display = 'none';
+  });
+
+  function selectItem(item) {
+    current = item;
+    searchEl.value = current.desc;
+    suggestionsEl.style.display = 'none';
+
+    var resultCard = document.getElementById('result-card');
+    var noData = document.getElementById('no-data');
+
+    if (!current.price || !current.floor) {
+      resultCard.style.display = 'none';
+      noData.style.display = 'block';
+      return;
+    }
+    noData.style.display = 'none';
+    resultCard.style.display = 'block';
+
+    document.getElementById('result-code').textContent = current.code;
+    document.getElementById('result-desc').textContent = current.desc;
+    document.getElementById('advertised-ref').textContent = '$' + current.price.toLocaleString();
+    document.getElementById('floor-ref').textContent = '$' + current.floor.toLocaleString();
+    document.getElementById('price-input').value = current.price;
+    updateMargin(current.price);
+  }
+
+  function tierInfo(price) {
+    if (!current || !current.floor || !current.target) return null;
+    if (price >= current.target) return { color: 'var(--green-text)', bg: 'var(--green-bg)', dot: 'var(--green-dot)', label: 'Strong', note: 'At or above target margin. Plenty of room to close confidently.' };
+    if (price >= current.floor) return { color: 'var(--amber-text)', bg: 'var(--amber-bg)', dot: 'var(--amber-dot)', label: 'Hold the line', note: 'Below target but above floor. Proceed, but do not discount further.' };
+    return { color: 'var(--red-text)', bg: 'var(--red-bg)', dot: 'var(--red-dot)', label: 'Below floor', note: 'Below the 20% margin floor. Requires manager approval to proceed.' };
+  }
+
+  function updateMargin(price) {
+    if (!current) return;
+    var floor = current.floor, target = current.target;
+    var pct;
+    if (target >= floor && target > 0) {
+      if (price >= target) pct = 22 + (price - target) / (target - floor) * 2;
+      else if (price >= floor) pct = 20 + (price - floor) / (target - floor) * 2;
+      else pct = 20 - (floor - price) / floor * 100 * 0.2;
+    } else {
+      pct = 21;
+    }
+    var t = tierInfo(price);
+    document.getElementById('margin-pct').textContent = '~' + pct.toFixed(1) + '%';
+    document.getElementById('tier-label').textContent = t.label;
+    document.getElementById('dot').style.background = t.dot;
+    document.getElementById('dot-inline').style.background = t.dot;
+    var note = document.getElementById('tier-note');
+    note.style.background = t.bg;
+    note.style.color = t.color;
+    note.textContent = t.note;
+  }
+
+  document.getElementById('btn-minus').addEventListener('click', function() { adjust(-5); });
+  document.getElementById('btn-plus').addEventListener('click', function() { adjust(5); });
+  document.getElementById('price-input').addEventListener('input', function() {
+    var val = parseFloat(this.value);
+    if (isNaN(val)) val = 0;
+    updateMargin(val);
+  });
+  document.getElementById('reset-btn').addEventListener('click', function() {
+    if (!current) return;
+    document.getElementById('price-input').value = current.price;
+    updateMargin(current.price);
+  });
+
+  function adjust(delta) {
+    var input = document.getElementById('price-input');
+    var val = parseFloat(input.value) || 0;
+    val += delta;
+    if (val < 0) val = 0;
+    input.value = val;
+    updateMargin(val);
+  }
+</script>
+
+</body>
+</html>
