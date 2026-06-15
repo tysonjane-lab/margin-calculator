@@ -143,7 +143,7 @@
 <script>
   // ---- CONFIGURATION ----
   // Replace this URL if the published feed is ever re-published with a new link.
-  var FEED_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSfRg0sY2K5FTTZ5_UI0xFbWCZ90mif69CoAjIsLytCEuztM4nrqYTK2CLzTl6flyMtQhtZEffI8n0l/pub?gid=142579291&single=true&output=csv";
+  var FEED_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQdf-pbo08I4zwQ890Mi95prc_m7hQM4-D75TKBVnQqfJx3L8gRYI6L44cEtzXqTLYx8SxCppEFkB1c/pub?output=csv";
   // -----------------------
 
   var DATA = [];
@@ -265,8 +265,8 @@
   function tierInfo(price) {
     if (!current || !current.floor || !current.target) return null;
     if (price >= current.target) return { color: 'var(--green-text)', bg: 'var(--green-bg)', dot: 'var(--green-dot)', label: 'Strong', note: 'At or above target margin. Plenty of room to close confidently.' };
-    if (price >= current.floor) return { color: 'var(--amber-text)', bg: 'var(--amber-bg)', dot: 'var(--amber-dot)', label: 'Hold the line', note: 'Below target but above floor. Proceed, but do not discount further.' };
-    return { color: 'var(--red-text)', bg: 'var(--red-bg)', dot: 'var(--red-dot)', label: 'Below floor', note: 'Below the 20% margin floor. Requires manager approval to proceed.' };
+    if (price >= current.floor) return { color: 'var(--amber-text)', bg: 'var(--amber-bg)', dot: 'var(--amber-dot)', label: 'Hold the line', note: 'Below target but above floor. Don\'t discount further \u2014 lean on value-adds (delivery, servicing, warranty) to close.' };
+    return { color: 'var(--red-text)', bg: 'var(--red-bg)', dot: 'var(--red-dot)', label: 'Below floor', note: 'Below the 20% margin floor. The website price is correct \u2014 offer value-adds, not a lower price. Needs manager approval to go further.' };
   }
 
   function updateMargin(price) {
