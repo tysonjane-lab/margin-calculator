@@ -54,6 +54,8 @@
     width: 140px; text-align: center; font-size: 34px; font-weight: 600;
     border: none; background: transparent; padding: 4px 0; outline: none;
   }
+  #price-input:disabled { color: #ccc; }
+  .price-btn:disabled { opacity: 0.5; cursor: not-allowed; }
   .margin-row { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 12px; }
   #margin-pct { font-size: 15px; font-weight: 600; }
   #tier-label { font-size: 13px; color: var(--text-secondary); }
@@ -143,7 +145,7 @@
 <script>
   // ---- CONFIGURATION ----
   // Replace this URL if the published feed is ever re-published with a new link.
-  var FEED_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQdf-pbo08I4zwQ890Mi95prc_m7hQM4-D75TKBVnQqfJx3L8gRYI6L44cEtzXqTLYx8SxCppEFkB1c/pub?output=csv";
+  var FEED_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSfOvazNzYMQ2vw7GeIyySqDYVq940N2jn4h_4MXQLU-2QJ2pNemHVZF2qJrvqjWY9-6HJMOZ1eXUEh/pub?output=csv";
   // -----------------------
 
   var DATA = [];
@@ -193,7 +195,8 @@
             desc: r[1] || '',
             price: parseFloat(r[2]) || null,
             floor: parseFloat(r[3]) || null,
-            target: parseFloat(r[4]) || null
+            target: parseFloat(r[4]) || null,
+            cost: parseFloat(r[5]) || null
           };
         }).filter(function(d){ return d.code; });
         document.getElementById('loading').style.display = 'none';
@@ -246,20 +249,60 @@
     var resultCard = document.getElementById('result-card');
     var noData = document.getElementById('no-data');
 
-    if (!current.price || !current.floor) {
-      resultCard.style.display = 'none';
-      noData.style.display = 'block';
-      return;
-    }
+    // Show result card for all items, but flag incomplete data
     noData.style.display = 'none';
     resultCard.style.display = 'block';
 
     document.getElementById('result-code').textContent = current.code;
     document.getElementById('result-desc').textContent = current.desc;
-    document.getElementById('advertised-ref').textContent = '$' + current.price.toLocaleString();
-    document.getElementById('floor-ref').textContent = '$' + current.floor.toLocaleString();
-    document.getElementById('price-input').value = current.price;
-    updateMargin(current.price);
+    
+    // Display prices if available
+    if (current.price && current.price > 0) {
+      document.getElementById('advertised-ref').textContent = '$' + current.price.toLocaleString();
+    } else {
+      document.getElementById('advertised-ref').textContent = '—';
+    }
+    if (current.floor && current.floor > 0) {
+      document.getElementById('floor-ref').textContent = '$' + current.floor.toLocaleString();
+    } else {
+      document.getElementById('floor-ref').textContent = '—';
+    }
+
+    // If both price and cost are available, show margin calculation
+    if (current.price && current.price > 0 && current.cost && current.cost > 0) {
+      document.getElementById('price-input').value = current.price;
+      document.getElementById('price-input').style.color = '#2C2C2A';
+      updateMargin(current.price);
+      // Show controls
+      document.getElementById('btn-minus').style.pointerEvents = 'auto';
+      document.getElementById('btn-plus').style.pointerEvents = 'auto';
+      document.getElementById('price-input').style.pointerEvents = 'auto';
+      document.getElementById('reset-btn').style.display = 'block';
+    } else {
+      // Missing data - show message
+      document.getElementById('price-input').value = '';
+      document.getElementById('price-input').style.color = '#ccc';
+      var msgs = [];
+      if (!current.price || current.price <= 0) msgs.push('Price not yet set');
+      if (!current.cost || current.cost <= 0) msgs.push('Cost information unavailable');
+      var msgText = 'Cannot calculate margin — ' + msgs.join(', ');
+      
+      var note = document.getElementById('tier-note');
+      note.style.background = 'var(--bg-secondary)';
+      note.style.color = 'var(--text-secondary)';
+      note.textContent = msgText;
+      
+      document.getElementById('margin-pct').textContent = '';
+      document.getElementById('tier-label').textContent = '';
+      document.getElementById('dot').style.background = '#ccc';
+      document.getElementById('dot-inline').style.background = '#ccc';
+      
+      // Disable controls
+      document.getElementById('btn-minus').style.pointerEvents = 'none';
+      document.getElementById('btn-plus').style.pointerEvents = 'none';
+      document.getElementById('price-input').style.pointerEvents = 'none';
+      document.getElementById('reset-btn').style.display = 'none';
+    }
   }
 
   function tierInfo(price) {
@@ -291,15 +334,15 @@
     note.textContent = t.note;
   }
 
-  document.getElementById('btn-minus').addEventListener('click', function() { adjust(-5); });
-  document.getElementById('btn-plus').addEventListener('click', function() { adjust(5); });
+  document.getElementById('btn-minus').addEventListener('click', function() { if(current && current.price > 0) adjust(-5); });
+  document.getElementById('btn-plus').addEventListener('click', function() { if(current && current.price > 0) adjust(5); });
   document.getElementById('price-input').addEventListener('input', function() {
     var val = parseFloat(this.value);
     if (isNaN(val)) val = 0;
-    updateMargin(val);
+    if(current && current.cost && current.cost > 0) updateMargin(val);
   });
   document.getElementById('reset-btn').addEventListener('click', function() {
-    if (!current) return;
+    if (!current || !current.price || current.price <= 0) return;
     document.getElementById('price-input').value = current.price;
     updateMargin(current.price);
   });
